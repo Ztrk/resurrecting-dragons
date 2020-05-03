@@ -12,9 +12,8 @@ bool Professional::has_higher_priority(int other_priority, int other_rank) {
 void Professional::execute() {
     MPI_Status status;
     Packet packet;
-    cout << "Working\n";
-    cout << "Rank: " << rank << '\n';
-    cout << "Size: " << size << '\n';
+
+    cout << *this << "Working\n";
     while (true) {
         if (state == State::START) {
             request_priority = clock + 1;
@@ -30,8 +29,7 @@ void Professional::execute() {
         MPI_Recv(&packet, 1, MPI_PACKET, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         update_clock(packet.time);
 
-        cout << "[" << rank <<  "/" << clock << "] " 
-            << "Received message " 
+        cout << *this << "Received message " 
             << "TAG: " << status.MPI_TAG
             << " FROM: " << status.MPI_SOURCE
             << " data: " << packet.data << '\n';
@@ -61,12 +59,19 @@ void Professional::execute() {
                         tasks_consumed += tasks_lower_priority + 1;
                         tasks_lower_priority = 0;
                         state = State::HAS_TASK;
-                        cout << "We received a task with id: " << task_id << '\n';
+                        cout << *this << "Received a task with id: " << task_id << '\n';
                     }
                 }
                 break;
             default:
-                cout << "Unknown tag\n";
+                cout << *this << "Unknown tag\n";
         }
     }
+}
+
+std::ostream& operator<<(std::ostream &os, const Professional &process) {
+    os << "\033[31;1m";
+    process.print(os);
+    os << "\033[0m";
+    return os;
 }

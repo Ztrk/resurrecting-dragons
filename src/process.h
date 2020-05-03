@@ -1,13 +1,17 @@
 #ifndef PROCESS_H
 #define PROCESS_H
+#include <ostream>
 #include "packet.h"
 
 class Process {
 public:
     Process();
     virtual void execute() = 0;
+    void print(std::ostream &os) const;
 
     virtual ~Process();
+
+    friend std::ostream& operator<<(std::ostream &os, const Process &process);
 protected:
     int rank;
     int size;
