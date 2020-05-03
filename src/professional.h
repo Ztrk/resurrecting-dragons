@@ -6,15 +6,22 @@
 
 class Professional : public Process {
 public:
-    enum class Specialization {
-        HEAD, BODY, TAIL
-    };
+    enum class Specialization;
+    enum class State;
 
     Professional(Specialization specialization);
     void execute();
+    void handle_packet(Packet &packet, PacketTag tag, int source);
+    void on_change_state();
+    void set_state(State new_state);
+
     bool has_specialization(int rank, Specialization s);
 
     friend std::ostream& operator<<(std::ostream &os, const Professional &process);
+
+    enum class Specialization {
+        HEAD, BODY, TAIL
+    };
 
     enum class State {
         START, WAIT_TASK, HAS_TASK
