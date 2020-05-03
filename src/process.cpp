@@ -33,7 +33,7 @@ void Process::print(ostream &os) const {
 ostream& operator<<(ostream &os, const Process &process) {
     // ANSI Escape sequences: \033[a;b;c;m   - ESC[
     // 30 - 38 - colors, 1 - bold, 0 - reset
-    os << "\033[1m";
+    os << "\033[1m" << "PROC";
     process.print(os);
     os << "\033[0m";
     return os;

@@ -25,7 +25,7 @@ void TaskGenerator::execute() {
 }
 
 std::ostream& operator<<(std::ostream &os, const TaskGenerator &process) {
-    os << "\033[33;1m";
+    os << "\033[33;1m" << "TGEN";
     process.print(os);
     os << "\033[0m";
     return os;

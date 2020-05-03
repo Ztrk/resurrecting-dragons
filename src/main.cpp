@@ -20,7 +20,15 @@ int main(int argc, char **argv) {
         process = new TaskGenerator();
     }
     else {
-        process = new Professional();
+        if (rank % 3 == 0) {
+            process = new Professional(Professional::Specialization::HEAD);
+        }
+        else if (rank % 3 == 1) {
+            process = new Professional(Professional::Specialization::BODY);
+        }
+        else {
+            process = new Professional(Professional::Specialization::TAIL);
+        }
     }
 
     process->execute();
