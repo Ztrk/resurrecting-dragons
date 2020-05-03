@@ -24,7 +24,7 @@ $(bin)/main: $(objects)
 # Header files 
 main.o: process.h task_generator.h professional.h packet.h
 
-process.o: process.h
+process.o: process.h packet.h
 
 task_generator.o: task_generator.h process.h packet.h
 

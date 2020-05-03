@@ -13,11 +13,12 @@ void TaskGenerator::execute() {
     cout << "Rank: " << rank << '\n';
     cout << "Size: " << size << '\n';
     while (true) {
+        update_clock();
         cout << "Generated task: " << task_id << '\n';
         packet.data = task_id;
         for (int i = 0; i < size; ++i) {
             if (i != rank) {
-                MPI_Send(&packet, 1, MPI_PACKET, i, TASK, MPI_COMM_WORLD);
+                send_packet(packet, i, TASK);
             }
         }
         ++task_id;

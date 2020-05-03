@@ -17,17 +17,21 @@ void Professional::execute() {
     cout << "Size: " << size << '\n';
     while (true) {
         if (state == State::START) {
-            request_priority = 0;
+            request_priority = clock + 1;
             packet.data = request_priority;
             for (int i = 0; i < size; ++i) {
                 if (i != rank) {
-                    MPI_Send(&packet, 1, MPI_PACKET, i, REQ_TASK, MPI_COMM_WORLD);
+                    send_packet(packet, i, REQ_TASK);
                 }
             }
             state = State::WAIT_TASK;
         }
+
         MPI_Recv(&packet, 1, MPI_PACKET, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-        cout << "Received message " 
+        update_clock(packet.time);
+
+        cout << "[" << rank <<  "/" << clock << "] " 
+            << "Received message " 
             << "TAG: " << status.MPI_TAG
             << " FROM: " << status.MPI_SOURCE
             << " data: " << packet.data << '\n';
@@ -47,7 +51,7 @@ void Professional::execute() {
                 else {
                     ++tasks_consumed;
                 }
-                MPI_Send(&packet, 1, MPI_PACKET, status.MPI_SOURCE, ACK_TASK, MPI_COMM_WORLD);
+                send_packet(packet, status.MPI_SOURCE, ACK_TASK);
                 break;
             case ACK_TASK:
                 if (packet.data == request_priority) {
