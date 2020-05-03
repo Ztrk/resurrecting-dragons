@@ -11,10 +11,10 @@ Professional::Professional(Specialization specialization)
             specialization_size = (size - 1) / 3;
             break;
         case Specialization::BODY:
-            specialization_size = size / 3;
+            specialization_size = (size + 1) / 3;
             break;
         case Specialization::TAIL:
-            specialization_size = (size + 1) / 3;
+            specialization_size = size / 3;
             break;
     }
 }
@@ -99,6 +99,9 @@ void Professional::on_change_state() {
             break;
         case State::HAS_TASK:
             // send offer
+            break;
+        default:
+            break;
     }
 }
 
@@ -108,6 +111,9 @@ void Professional::set_state(State new_state) {
 }
 
 bool Professional::has_specialization(int rank, Specialization s) {
+    if (rank == 0) {
+        return false;
+    }
     switch (s) {
         case Specialization::HEAD:
             return rank % 3 == 0;
