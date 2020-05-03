@@ -1,11 +1,15 @@
 #include <iostream>
 #include <mpi.h>
+#include "packet.h"
 #include "process.h"
+#include "professional.h"
 #include "task_generator.h"
 using namespace std;
 
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
+
+    Packet::initialize_datatype();
 
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -16,7 +20,7 @@ int main(int argc, char **argv) {
         process = new TaskGenerator();
     }
     else {
-        process = new Process();
+        process = new Professional();
     }
 
     process->execute();

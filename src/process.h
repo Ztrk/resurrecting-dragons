@@ -4,7 +4,7 @@
 class Process {
 public:
     Process();
-    virtual void execute();
+    virtual void execute() = 0;
 
     virtual ~Process();
 protected:

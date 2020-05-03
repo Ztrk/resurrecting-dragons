@@ -1,6 +1,6 @@
 # Compiler options
 CXX = mpic++
-CXXFLAGS = -Wall
+CXXFLAGS = -Wall -std=c++11
 
 # Linker options
 CC = mpic++
@@ -11,7 +11,7 @@ vpath %.h src
 vpath %.cpp src
 vpath %.o $(bin)
 
-objects = main.o process.o task_generator.o
+objects = main.o process.o task_generator.o professional.o packet.o
 
 # Linking rule
 $(bin)/main: $(objects)
@@ -22,11 +22,15 @@ $(bin)/main: $(objects)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $(bin)/$@ $<
 
 # Header files 
-main.o: process.h task_generator.h
+main.o: process.h task_generator.h professional.h packet.h
 
 process.o: process.h
 
-task_generator.o: task_generator.h process.h
+task_generator.o: task_generator.h process.h packet.h
+
+professional.o: professional.h process.h packet.h
+
+packet.o: packet.h
 
 # Make sure directory is created
 $(objects): | $(bin)
