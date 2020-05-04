@@ -1,5 +1,6 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
+#include <ostream>
 
 struct Packet {
     int time;
@@ -8,6 +9,8 @@ struct Packet {
 
     static void initialize_datatype();
 };
+
+std::ostream& operator<<(std::ostream &os, const Packet &packet);
 
 enum PacketTag {
     TASK, REQ_TASK, ACK_TASK, OFFER, 

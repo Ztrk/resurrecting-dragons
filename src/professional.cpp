@@ -47,18 +47,16 @@ void Professional::set_state(State new_state) {
 }
 
 void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
-    cout << *this << "Received message " 
-        << "TAG: " << tag
-        << " FROM: " << source
-        << " data: " << packet.data << '\n';
     switch (tag) {
         case TASK:
+            cout << *this << "Received TASK, id: " << packet.data << '\n';
             ++tasks_produced;
             if (state == State::HAS_TEAM && tasks_produced >= task_id) {
                 set_state(State::IDLE);
             }
             break;
         case REQ_TASK:
+            cout << *this << "Received REQ_TASK " << packet << '\n';
             if (state == State::WAIT_TASK && has_higher_priority(packet.data, source)) {
                 ++tasks_lower_priority;
             }
@@ -68,9 +66,11 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             send_packet(packet, source, ACK_TASK);
             break;
         case ACK_TASK:
+            cout << *this << "Received ACK_TASK " << packet << '\n';
             handle_ack(packet.data, specialization_size - 1, State::HAS_TASK);
             break;
         case OFFER:
+            cout << *this << "Received OFFER " << packet << '\n';
             if (offers.find(packet.data) == offers.end()) {
                 offers[packet.data] = array<int, 3>{-1, -1, -1};
             }
@@ -87,6 +87,7 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             }
             break;
         case REQ_OFFICE:
+            cout << *this << "Received REQ_OFFICE " << packet << '\n';
             if (state == State::WORK_OFFICE 
                     || (state == State::WAIT_OFFICE && has_higher_priority(packet.data, source))) {
                 requests.push_back(packet);
@@ -96,12 +97,15 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             }
             break;
         case ACK_OFFICE:
+            cout << *this << "Received ACK_OFFICE " << packet << '\n';
             handle_ack(packet.data, specialization_size - OFFICE_NUM, State::WORK_OFFICE);
             break;
         case END_OFFICE:
+            cout << *this << "Received END_OFFICE " << packet << '\n';
             set_state(State::WAIT_SKELETON);
             break;
         case REQ_SKELETON:
+            cout << *this << "Received REQ_SKELETON " << packet << '\n';
             if (state == State::WORK_SKELETON 
                     || (state == State::WAIT_SKELETON && has_higher_priority(packet.data, source))) {
                 requests.push_back(packet);
@@ -111,13 +115,15 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             }
             break;
         case ACK_SKELETON:
+            cout << *this << "Received ACK_SKELETON " << packet << '\n';
             handle_ack(packet.data, specialization_size - SKELETON_NUM, State::WORK_SKELETON);
             break;
         case END_SKELETON:
+            cout << *this << "Received END_SKELETON " << packet << '\n';
 
             break;
         default:
-            cout << *this << "Unknown tag\n";
+            cout << *this << "Unknown tag " << packet << '\n';
     }
 }
 
@@ -160,7 +166,10 @@ void Professional::on_change_state() {
             }
             break;
         case State::HAS_TEAM:
-            cout << *this << "We are in team\n";
+            cout << *this << "My team: " 
+                << offers[task_id][0] << " "
+                << offers[task_id][1] << " "
+                << offers[task_id][2] << '\n';
             if (tasks_produced >= task_id) {
                 set_state(State::IDLE);
             }
@@ -173,7 +182,7 @@ void Professional::on_change_state() {
             break;
         case State::WAIT_OFFICE:
             cout << *this << "Sending request for office\n";
-            if (specialization_size > 1) {
+            if (specialization_size > SKELETON_NUM) {
                 send_request(REQ_OFFICE);
             }
             else {
@@ -186,7 +195,7 @@ void Professional::on_change_state() {
             break;
         case State::WAIT_SKELETON:
             cout << *this << "Sending request for skeleton\n";
-            if (specialization_size > 1) {
+            if (specialization_size > OFFICE_NUM) {
                 send_request(REQ_SKELETON);
             }
             else {

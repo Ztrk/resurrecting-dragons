@@ -14,3 +14,8 @@ void Packet::initialize_datatype() {
     MPI_Type_create_struct(fieldsNum, blocklengths, offsets, types, &MPI_PACKET);
     MPI_Type_commit(&MPI_PACKET);
 }
+
+std::ostream& operator<<(std::ostream &os, const Packet &packet) {
+    std::cout << "from: " << packet.source << " data: " << packet.data;
+    return os;
+}
