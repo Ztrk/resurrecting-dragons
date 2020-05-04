@@ -9,7 +9,10 @@ struct Packet {
 };
 
 enum PacketTag {
-    TASK, REQ_TASK, ACK_TASK
+    TASK, REQ_TASK, ACK_TASK, OFFER, 
+    REQ_OFFICE, ACK_OFFICE, END_OFFICE,
+    REQ_SKELETON, ACK_SKELETON,
+    START_SKELETON, END_SKELETON
 };
 
 extern MPI_Datatype MPI_PACKET;

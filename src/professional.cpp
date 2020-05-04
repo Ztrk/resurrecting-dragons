@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <mpi.h>
 #include "professional.h"
@@ -16,6 +17,8 @@ Professional::Professional(Specialization specialization)
         case Specialization::TAIL:
             specialization_size = size / 3;
             break;
+        default:
+            specialization_size = size;
     }
 }
 
@@ -47,6 +50,9 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
     switch (tag) {
         case TASK:
             ++tasks_produced;
+            if (state == State::HAS_TEAM && tasks_produced >= task_id) {
+                set_state(State::IDLE);
+            }
             break;
         case REQ_TASK:
             if (state == State::WAIT_TASK) {
@@ -66,11 +72,23 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             if (packet.data == request_priority) {
                 ++ack_count;
                 if (ack_count == specialization_size - 2) {
-                    int task_id = tasks_consumed + 1;
-                    tasks_consumed += tasks_lower_priority + 1;
-                    tasks_lower_priority = 0;
                     set_state(State::HAS_TASK);
-                    cout << *this << "Received a task with id: " << task_id << '\n';
+                }
+            }
+            break;
+        case OFFER:
+            if (offers.find(packet.data) == offers.end()) {
+                offers[packet.data] = array<int, 3>{-1, -1, -1};
+            }
+            {
+                // scope for offer
+                auto &offer = offers[packet.data];
+                offer[static_cast<int>(get_specialization(source))] = source;
+                if (state == State::HAS_TASK && packet.data == task_id) {
+                    int cnt = count(offer.begin(), offer.end(), -1);
+                    if (cnt <= 1) {
+                        set_state(State::HAS_TEAM);
+                    }
                 }
             }
             break;
@@ -80,25 +98,57 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
 }
 
 void Professional::on_change_state() {
+    Packet packet;
     switch (state) {
         case State::START:
-            Packet packet;
-            request_priority = clock + 1;
-            packet.data = request_priority;
-            for (int i = 0; i < size; ++i) {
-                if (has_specialization(i, specialization) && i != rank) {
-                    send_packet(packet, i, REQ_TASK);
-                }
-            }
             set_state(State::WAIT_TASK);
             break;
         case State::WAIT_TASK:
+            ack_count = 0;
+            tasks_lower_priority = 0;
+            request_priority = clock + 1;
+
+            packet.data = request_priority;
+            for (int i = 0; i < size; ++i) {
+                if (get_specialization(i) == specialization && i != rank) {
+                    send_packet(packet, i, REQ_TASK);
+                }
+            }
+
             if (specialization_size - 2 <= 0) {
                 set_state(State::HAS_TASK);
             }
             break;
         case State::HAS_TASK:
-            // send offer
+            task_id = tasks_consumed + 1;
+            tasks_consumed += tasks_lower_priority + 1;
+            cout << *this << "Received a task with id: " << task_id << '\n';
+
+            packet.data = task_id;
+            for (int i = 0; i < size; ++i) {
+                if (get_specialization(i) != specialization && i != 0) {
+                    send_packet(packet, i, OFFER);
+                }
+            }
+            if (offers.find(task_id) == offers.end()) {
+                offers[task_id] = array<int, 3>{-1, -1, -1};
+            }
+            else {
+                auto &offer = offers[task_id];
+                int cnt = count(offer.begin(), offer.end(), -1);
+                if (cnt <= 1) {
+                    set_state(State::HAS_TEAM);
+                }
+            }
+            break;
+        case State::HAS_TEAM:
+            cout << *this << "We are in team\n";
+            if (tasks_produced >= task_id) {
+                set_state(State::IDLE);
+            }
+            break;
+        case State::IDLE:
+            cout << *this << "Nothing to do\n";
             break;
         default:
             break;
@@ -110,19 +160,19 @@ void Professional::set_state(State new_state) {
     on_change_state();
 }
 
-bool Professional::has_specialization(int rank, Specialization s) {
+Professional::Specialization Professional::get_specialization(int rank) {
     if (rank == 0) {
-        return false;
+        return Specialization::UNDEFINED;
     }
-    switch (s) {
-        case Specialization::HEAD:
-            return rank % 3 == 0;
-        case Specialization::BODY:
-            return rank % 3 == 1;
-        case Specialization::TAIL:
-            return rank % 3 == 2;
+    switch (rank % 3) {
+        case 0:
+            return Specialization::HEAD;
+        case 1:
+            return Specialization::BODY;
+        case 2:
+            return Specialization::TAIL;
         default:
-            return false;
+            return Specialization::UNDEFINED;
     }
 }
 
