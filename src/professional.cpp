@@ -79,7 +79,7 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             // scope for offer
             {
                 auto &offer = offers[packet.data];
-                offer[static_cast<int>(get_specialization(source))] = source;
+                offer[get_specialization(source)] = source;
                 if (state == State::HAS_TASK && packet.data == task_id) {
                     int cnt = count(offer.begin(), offer.end(), -1);
                     if (cnt <= 1) {
@@ -100,7 +100,9 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             break;
         case ACK_OFFICE:
             cout << *this << "Received ACK_OFFICE " << packet << '\n';
-            handle_ack(packet.data, specialization_size - OFFICE_NUM, State::WORK_OFFICE);
+            if (state == State::WAIT_OFFICE) {
+                handle_ack(packet.data, specialization_size - OFFICE_NUM, State::WORK_OFFICE);
+            }
             break;
         case END_OFFICE:
             cout << *this << "Received END_OFFICE " << packet << '\n';
@@ -123,11 +125,26 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             break;
         case ACK_SKELETON:
             cout << *this << "Received ACK_SKELETON " << packet << '\n';
-            handle_ack(packet.data, specialization_size - SKELETON_NUM, State::WORK_SKELETON);
+            if (state == State::WAIT_SKELETON) {
+                handle_ack(packet.data, specialization_size - SKELETON_NUM, State::WORK_SKELETON);
+            }
+            break;
+        case START_SKELETON:
+            cout << *this << "Received START_SKELETON " << packet << '\n';
+            set_state(State::WORK_SKELETON);
             break;
         case END_SKELETON:
             cout << *this << "Received END_SKELETON " << packet << '\n';
-
+            if (specialization == Specialization::BODY) {
+                ++end_skeleton_count;
+                if (end_skeleton_count >= 3) {
+                    set_state(State::FINISH_SKELETON);
+                }
+            }
+            else {
+                send_packet(packet, offers[task_id][Specialization::BODY], END_SKELETON);
+                set_state(State::START);
+            }
             break;
         default:
             cout << *this << "Unknown tag " << packet << '\n';
@@ -202,7 +219,7 @@ void Professional::on_change_state() {
             break;
         case State::FINISH_OFFICE:
             cout << *this << "Finished work in office, informing others\n";
-            send_packet(packet, offers[task_id][BODY], END_OFFICE);
+            send_packet(packet, offers[task_id][Specialization::BODY], END_OFFICE);
             for (size_t i = 0; i < requests.size(); ++i) {
                 send_packet(requests[i], requests[i].source, ACK_OFFICE);
             }
@@ -219,9 +236,19 @@ void Professional::on_change_state() {
             break;
         case State::WORK_SKELETON:
             cout << *this << "Resurrecting dragon\n";
+            if (specialization == Specialization::BODY) {
+                send_packet(packet, offers[task_id][Specialization::HEAD], START_SKELETON);
+                send_packet(packet, offers[task_id][Specialization::TAIL], START_SKELETON);
+            }
             thread(&Professional::work_skeleton, this).detach();
             break;
         case State::FINISH_SKELETON:
+            end_skeleton_count = 0;
+            for (size_t i = 0; i < requests.size(); ++i) {
+                send_packet(requests[i], requests[i].source, ACK_SKELETON);
+            }
+            requests.clear();
+            set_state(State::START);
             break;
         default:
             break;
@@ -253,6 +280,7 @@ void Professional::work_office() {
     this_thread::sleep_for(chrono::seconds(2));
     cout << *this << "Work in office finished" << '\n';
     Packet packet;
+    packet.source = rank;
     MPI_Send(&packet, 1, MPI_PACKET, rank, END_OFFICE, MPI_COMM_WORLD);
 }
 
@@ -260,6 +288,7 @@ void Professional::work_skeleton() {
     this_thread::sleep_for(chrono::seconds(2));
     cout << *this << "Resurecting dragon finished" << '\n';
     Packet packet;
+    packet.source = rank;
     MPI_Send(&packet, 1, MPI_PACKET, rank, END_SKELETON, MPI_COMM_WORLD);
 }
 

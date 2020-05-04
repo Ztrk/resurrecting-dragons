@@ -14,7 +14,8 @@ int main(int argc, char **argv) {
         cout << "Requested: " << MPI_THREAD_MULTIPLE 
             << " provided: " << provided << '\n';
         cout << "Exiting\n";
-        return 0;
+        MPI_Finalize();
+        return 1;
     }
 
 

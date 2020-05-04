@@ -56,6 +56,8 @@ private:
     std::unordered_map<int, std::array<int, 3>> offers;
     std::vector<Packet> requests;
 
+    int end_skeleton_count = 0;
+
     bool has_higher_priority(int other_priority, int other_rank);
 };
 
