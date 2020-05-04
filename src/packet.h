@@ -3,6 +3,7 @@
 
 struct Packet {
     int time;
+    int source;
     int data;
 
     static void initialize_datatype();

@@ -23,6 +23,7 @@ void Process::update_clock(int other_clock) {
 void Process::send_packet(Packet &packet, int destination, PacketTag tag) {
     update_clock();
     packet.time = clock;
+    packet.source = rank;
     MPI_Send(&packet, 1, MPI_PACKET, destination, tag, MPI_COMM_WORLD);
 }
 
