@@ -41,6 +41,10 @@ void Professional::execute() {
     }
 }
 
+void Professional::set_state(State new_state) {
+    state = new_state;
+    on_change_state();
+}
 
 void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
     cout << *this << "Received message " 
@@ -71,7 +75,7 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
         case ACK_TASK:
             if (packet.data == request_priority) {
                 ++ack_count;
-                if (ack_count == specialization_size - 2) {
+                if (ack_count == specialization_size - 1) {
                     set_state(State::HAS_TASK);
                 }
             }
@@ -80,8 +84,8 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             if (offers.find(packet.data) == offers.end()) {
                 offers[packet.data] = array<int, 3>{-1, -1, -1};
             }
+            // scope for offer
             {
-                // scope for offer
                 auto &offer = offers[packet.data];
                 offer[static_cast<int>(get_specialization(source))] = source;
                 if (state == State::HAS_TASK && packet.data == task_id) {
@@ -91,6 +95,29 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
                     }
                 }
             }
+            break;
+        case REQ_OFFICE:
+
+            break;
+        case ACK_OFFICE:
+            if (packet.data == request_priority) {
+                ++ack_count;
+                if (ack_count >= specialization_size - OFFICE_NUM) {
+                    set_state(State::WORK_OFFICE);
+                }
+            }
+            break;
+        case END_OFFICE:
+            set_state(State::WAIT_SKELETON);
+            break;
+        case REQ_SKELETON:
+
+            break;
+        case ACK_SKELETON:
+
+            break;
+        case END_SKELETON:
+
             break;
         default:
             cout << *this << "Unknown tag\n";
@@ -104,25 +131,19 @@ void Professional::on_change_state() {
             set_state(State::WAIT_TASK);
             break;
         case State::WAIT_TASK:
-            ack_count = 0;
+            cout << *this << "Requesting task\n";
             tasks_lower_priority = 0;
-            request_priority = clock + 1;
-
-            packet.data = request_priority;
-            for (int i = 0; i < size; ++i) {
-                if (get_specialization(i) == specialization && i != rank) {
-                    send_packet(packet, i, REQ_TASK);
-                }
+            if (specialization_size > 1) {
+                send_request(REQ_TASK);
             }
-
-            if (specialization_size - 2 <= 0) {
+            else {
                 set_state(State::HAS_TASK);
             }
             break;
         case State::HAS_TASK:
             task_id = tasks_consumed + 1;
             tasks_consumed += tasks_lower_priority + 1;
-            cout << *this << "Received a task with id: " << task_id << '\n';
+            cout << *this << "My task has id: " << task_id << ", sending offers\n";
 
             packet.data = task_id;
             for (int i = 0; i < size; ++i) {
@@ -149,15 +170,51 @@ void Professional::on_change_state() {
             break;
         case State::IDLE:
             cout << *this << "Nothing to do\n";
+            if (specialization == Specialization::TAIL) {
+                set_state(State::WAIT_OFFICE);
+            }
+            break;
+        case State::WAIT_OFFICE:
+            cout << *this << "Sending request for office\n";
+            if (specialization_size > 1) {
+                send_request(REQ_OFFICE);
+            }
+            else {
+                set_state(State::WORK_OFFICE);
+            }
+            break;
+        case State::WORK_OFFICE:
+            cout << *this << "Working in office\n";
+            // Create a new thread that "works" for some time
+            break;
+        case State::WAIT_SKELETON:
+            cout << *this << "Sending request for skeleton\n";
+            if (specialization_size > 1) {
+                send_request(REQ_SKELETON);
+            }
+            else {
+                set_state(State::WORK_OFFICE);
+            }
+            break;
+        case State::WORK_SKELETON:
+            cout << *this << "Resurrecting dragon\n";
+            // Create a new thread that "works" for some time
             break;
         default:
             break;
     }
 }
 
-void Professional::set_state(State new_state) {
-    state = new_state;
-    on_change_state();
+void Professional::send_request(PacketTag request_tag) {
+    Packet packet;
+    ack_count = 0;
+    request_priority = clock + 1;
+    packet.data = request_priority;
+    for (int i = 0; i < size; ++i) {
+        if (get_specialization(i) == specialization && i != rank) {
+            send_packet(packet, i, request_tag);
+        }
+    }
 }
 
 Professional::Specialization Professional::get_specialization(int rank) {

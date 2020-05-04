@@ -18,6 +18,8 @@ public:
     void on_change_state();
     void set_state(State new_state);
 
+    void send_request(PacketTag request_tag);
+
     Specialization get_specialization(int rank);
 
     friend std::ostream& operator<<(std::ostream &os, const Professional &process);
@@ -35,6 +37,9 @@ private:
     State state = State::START;
     Specialization specialization;
 
+    const int OFFICE_NUM = 3;
+    const int SKELETON_NUM = 3;
+
     int tasks_produced = 0;
     int tasks_consumed = 0;
     int tasks_lower_priority = 0;
@@ -47,6 +52,7 @@ private:
     int request_priority = 0;
 
     std::unordered_map<int, std::array<int, 3>> offers;
+    std::vector<Packet> req_office;
 
     bool has_higher_priority(int other_priority, int other_rank);
 };
