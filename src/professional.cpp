@@ -59,13 +59,8 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             }
             break;
         case REQ_TASK:
-            if (state == State::WAIT_TASK) {
-                if (has_higher_priority(packet.data, source)) {
-                    ++tasks_lower_priority;
-                }
-                else {
-                    ++tasks_consumed;
-                }
+            if (state == State::WAIT_TASK && has_higher_priority(packet.data, source)) {
+                ++tasks_lower_priority;
             }
             else {
                 ++tasks_consumed;
@@ -73,12 +68,7 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             send_packet(packet, source, ACK_TASK);
             break;
         case ACK_TASK:
-            if (packet.data == request_priority) {
-                ++ack_count;
-                if (ack_count == specialization_size - 1) {
-                    set_state(State::HAS_TASK);
-                }
-            }
+            handle_ack(packet.data, specialization_size - 1, State::HAS_TASK);
             break;
         case OFFER:
             if (offers.find(packet.data) == offers.end()) {
@@ -97,24 +87,31 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             }
             break;
         case REQ_OFFICE:
-
+            if (state == State::WORK_OFFICE 
+                    || (state == State::WAIT_OFFICE && has_higher_priority(packet.data, source))) {
+                requests.push_back(packet);
+            }
+            else {
+                send_packet(packet, source, ACK_OFFICE);
+            }
             break;
         case ACK_OFFICE:
-            if (packet.data == request_priority) {
-                ++ack_count;
-                if (ack_count >= specialization_size - OFFICE_NUM) {
-                    set_state(State::WORK_OFFICE);
-                }
-            }
+            handle_ack(packet.data, specialization_size - OFFICE_NUM, State::WORK_OFFICE);
             break;
         case END_OFFICE:
             set_state(State::WAIT_SKELETON);
             break;
         case REQ_SKELETON:
-
+            if (state == State::WORK_SKELETON 
+                    || (state == State::WAIT_SKELETON && has_higher_priority(packet.data, source))) {
+                requests.push_back(packet);
+            }
+            else {
+                send_packet(packet, source, ACK_SKELETON);
+            }
             break;
         case ACK_SKELETON:
-
+            handle_ack(packet.data, specialization_size - SKELETON_NUM, State::WORK_SKELETON);
             break;
         case END_SKELETON:
 
@@ -213,6 +210,15 @@ void Professional::send_request(PacketTag request_tag) {
     for (int i = 0; i < size; ++i) {
         if (get_specialization(i) == specialization && i != rank) {
             send_packet(packet, i, request_tag);
+        }
+    }
+}
+
+void Professional::handle_ack(int priority, int ack_threshold, State new_state) {
+    if (request_priority == priority) {
+        ++ack_count;
+        if (ack_count >= ack_threshold) {
+            set_state(new_state);
         }
     }
 }

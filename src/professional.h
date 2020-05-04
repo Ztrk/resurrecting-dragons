@@ -19,6 +19,7 @@ public:
     void set_state(State new_state);
 
     void send_request(PacketTag request_tag);
+    void handle_ack(int priority, int ack_threshold, State new_state);
 
     Specialization get_specialization(int rank);
 
@@ -52,7 +53,7 @@ private:
     int request_priority = 0;
 
     std::unordered_map<int, std::array<int, 3>> offers;
-    std::vector<Packet> req_office;
+    std::vector<Packet> requests;
 
     bool has_higher_priority(int other_priority, int other_rank);
 };
