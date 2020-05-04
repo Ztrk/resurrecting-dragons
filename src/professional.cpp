@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <chrono>
 #include <iostream>
+#include <thread>
 #include <mpi.h>
 #include "professional.h"
 #include "packet.h"
@@ -102,7 +104,12 @@ void Professional::handle_packet(Packet &packet, PacketTag tag, int source) {
             break;
         case END_OFFICE:
             cout << *this << "Received END_OFFICE " << packet << '\n';
-            set_state(State::WAIT_SKELETON);
+            if (specialization == Specialization::BODY) {
+                set_state(State::WAIT_SKELETON);
+            }
+            else {
+                set_state(State::FINISH_OFFICE);
+            }
             break;
         case REQ_SKELETON:
             cout << *this << "Received REQ_SKELETON " << packet << '\n';
@@ -191,7 +198,15 @@ void Professional::on_change_state() {
             break;
         case State::WORK_OFFICE:
             cout << *this << "Working in office\n";
-            // Create a new thread that "works" for some time
+            thread(&Professional::work_office, this).detach();
+            break;
+        case State::FINISH_OFFICE:
+            cout << *this << "Finished work in office, informing others\n";
+            send_packet(packet, offers[task_id][BODY], END_OFFICE);
+            for (size_t i = 0; i < requests.size(); ++i) {
+                send_packet(requests[i], requests[i].source, ACK_OFFICE);
+            }
+            requests.clear();
             break;
         case State::WAIT_SKELETON:
             cout << *this << "Sending request for skeleton\n";
@@ -199,12 +214,14 @@ void Professional::on_change_state() {
                 send_request(REQ_SKELETON);
             }
             else {
-                set_state(State::WORK_OFFICE);
+                set_state(State::WORK_SKELETON);
             }
             break;
         case State::WORK_SKELETON:
             cout << *this << "Resurrecting dragon\n";
-            // Create a new thread that "works" for some time
+            thread(&Professional::work_skeleton, this).detach();
+            break;
+        case State::FINISH_SKELETON:
             break;
         default:
             break;
@@ -230,6 +247,20 @@ void Professional::handle_ack(int priority, int ack_threshold, State new_state) 
             set_state(new_state);
         }
     }
+}
+
+void Professional::work_office() {
+    this_thread::sleep_for(chrono::seconds(2));
+    cout << *this << "Work in office finished" << '\n';
+    Packet packet;
+    MPI_Send(&packet, 1, MPI_PACKET, rank, END_OFFICE, MPI_COMM_WORLD);
+}
+
+void Professional::work_skeleton() {
+    this_thread::sleep_for(chrono::seconds(2));
+    cout << *this << "Resurecting dragon finished" << '\n';
+    Packet packet;
+    MPI_Send(&packet, 1, MPI_PACKET, rank, END_SKELETON, MPI_COMM_WORLD);
 }
 
 Professional::Specialization Professional::get_specialization(int rank) {

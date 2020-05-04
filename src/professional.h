@@ -9,7 +9,9 @@
 
 class Professional : public Process {
 public:
-    enum class Specialization;
+    enum Specialization {
+        HEAD = 0, BODY = 1, TAIL = 2, UNDEFINED
+    };
     enum class State;
 
     Professional(Specialization specialization);
@@ -21,18 +23,17 @@ public:
     void send_request(PacketTag request_tag);
     void handle_ack(int priority, int ack_threshold, State new_state);
 
+    void work_office();
+    void work_skeleton();
+
     Specialization get_specialization(int rank);
 
     friend std::ostream& operator<<(std::ostream &os, const Professional &process);
 
-    enum class Specialization {
-        HEAD = 0, BODY = 1, TAIL = 2, UNDEFINED
-    };
-
     enum class State {
         START, WAIT_TASK, HAS_TASK, HAS_TEAM,
-        IDLE, WAIT_OFFICE, WORK_OFFICE,
-        WAIT_SKELETON, WORK_SKELETON
+        IDLE, WAIT_OFFICE, WORK_OFFICE, FINISH_OFFICE,
+        WAIT_SKELETON, WORK_SKELETON, FINISH_SKELETON
     };
 private:
     State state = State::START;

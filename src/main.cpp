@@ -7,7 +7,16 @@
 using namespace std;
 
 int main(int argc, char **argv) {
-    MPI_Init(&argc, &argv);
+    int provided;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    if (provided != MPI_THREAD_MULTIPLE) {
+        cout << "MPI does not provide enough thread support\n";
+        cout << "Requested: " << MPI_THREAD_MULTIPLE 
+            << " provided: " << provided << '\n';
+        cout << "Exiting\n";
+        return 0;
+    }
+
 
     Packet::initialize_datatype();
 
