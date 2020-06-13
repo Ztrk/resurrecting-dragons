@@ -6,6 +6,9 @@
 #include "packet.h"
 using namespace std;
 
+TaskGenerator::TaskGenerator(int time_per_task) 
+    : TIME_PER_TASK(time_per_task) { }
+
 void TaskGenerator::execute() {
     Packet packet;
     int task_id = 1;
@@ -20,7 +23,7 @@ void TaskGenerator::execute() {
             }
         }
         ++task_id;
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::this_thread::sleep_for(std::chrono::seconds(TIME_PER_TASK));
     }
 }
 

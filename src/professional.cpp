@@ -7,22 +7,12 @@
 #include "packet.h"
 using namespace std;
 
-Professional::Professional(Specialization specialization)
-: specialization(specialization) { 
-    switch (specialization) {
-        case Specialization::HEAD:
-            specialization_size = (size - 1) / 3;
-            break;
-        case Specialization::BODY:
-            specialization_size = (size + 1) / 3;
-            break;
-        case Specialization::TAIL:
-            specialization_size = size / 3;
-            break;
-        default:
-            specialization_size = size;
-    }
-}
+Professional::Professional(vector<Specialization> specializations, 
+    int office_num, int skeleton_num, int work_time)
+: specialization(specializations[rank]),
+specializations(specializations),
+specialization_size(count(specializations.begin(), specializations.end(), specialization)), 
+OFFICE_NUM(office_num), SKELETON_NUM(skeleton_num), WORK_TIME(work_time) { }
 
 bool Professional::has_higher_priority(int other_priority, int other_rank) {
     return request_priority < other_priority
@@ -277,7 +267,7 @@ void Professional::handle_ack(int priority, int ack_threshold, State new_state) 
 }
 
 void Professional::work_office() {
-    this_thread::sleep_for(chrono::seconds(2));
+    this_thread::sleep_for(chrono::seconds(WORK_TIME));
     cout << *this << "Work in office finished" << '\n';
     Packet packet;
     packet.source = rank;
@@ -285,7 +275,7 @@ void Professional::work_office() {
 }
 
 void Professional::work_skeleton() {
-    this_thread::sleep_for(chrono::seconds(2));
+    this_thread::sleep_for(chrono::seconds(WORK_TIME));
     cout << *this << "Resurecting dragon finished" << '\n';
     Packet packet;
     packet.source = rank;
@@ -293,19 +283,7 @@ void Professional::work_skeleton() {
 }
 
 Professional::Specialization Professional::get_specialization(int rank) {
-    if (rank == 0) {
-        return Specialization::UNDEFINED;
-    }
-    switch (rank % 3) {
-        case 0:
-            return Specialization::HEAD;
-        case 1:
-            return Specialization::BODY;
-        case 2:
-            return Specialization::TAIL;
-        default:
-            return Specialization::UNDEFINED;
-    }
+    return specializations[rank];
 }
 
 std::ostream& operator<<(std::ostream &os, const Professional &process) {
