@@ -250,10 +250,10 @@ Złożoność czasowa dla pojedynczego zlecenia jest liczona jako liczba rund, w
 		\item \(k \in \{2,3\} \Rightarrow o=10\lceil \frac{m}{k} \rceil\)
 		\item \(k \in <4;9> \Rightarrow o=10\lceil \frac{m}{k} \rceil+
 		\begin{cases}
-			0 \iff m\ mod\ k-2<=0\\
-			m\ mod\ k-2\ \text{otherwise}\\
+			0 \iff ((m-1)\ \bmod k)-2<=0\\
+			((m-1) \bmod k)-2\ \text{otherwise}\\
 		\end{cases}\)
-		\item \(k \in <10;\infty> \Rightarrow o=10+max(m, 2)-2\)
+		\item \(k \in <10;\infty) \Rightarrow o=10+max(m, 3)-3\)
 		
 		Gdzie \(o\) to liczba rund - złożoność czasowa.
 	\end{description}
