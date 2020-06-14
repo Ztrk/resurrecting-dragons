@@ -82,7 +82,7 @@ Wiadomości \msg{REQ\_ZLECENIE}, \msg{REQ\_BIURO}, \msg{REQ\_SZKIELET} zawieraj�
 		\item \msg{REQ\_SZKIELET} Odpowiedz komunikatem \msg{ACK\_SZKIELET}
 		\item \msg{REQ\_BIURO} Odpowiedz komunikatem \msg{ACK\_BIURO}
 		\item \msg{REQ\_ZLECENIE} Odpowiedz komunikatem \msg{ACK\_ZLECENIE}. Zwiększ wartość $z_c$ o 1.
-		\item \msg{OFFER} Dodaj proces do kolejki \var{QUEUE\_OFFER}.
+		\item \msg{OFFER} Dodaj id procesu do lokalnej mapy ofert w pozycji będącej id taska, którego dotyczy oferta.
 		\item \msg{ZLECENIE} Zwiększ wartość $z_p$ o 1
 		\item \msg{ACK\_BIURO}, \msg{ACK\_SZKIELET}, \msg{ACK\_ZLECENIE} Zignoruj
 	\end{enumerate}
@@ -106,7 +106,6 @@ Wiadomości \msg{REQ\_ZLECENIE}, \msg{REQ\_BIURO}, \msg{REQ\_SZKIELET} zawieraj�
 	\begin{enumerate}
 		\item \msg{REQ\_ZLECENIE} Dodaj proces do \var{QUEUE\_ZLECENIE}.
 		\item \msg{ACK\_ZLECENIE} Zignoruj
-		\item \msg{OFFER} Dodaj proces do kolejki \var{QUEUE\_OFFER}.
 		\item \msg{KONIEC\_BIURO}, \msg{START\_SZKIELET}, \msg{KONIEC\_SZKIELET} Dostarcz wiadomości, w kolejności odebrania, po przejściu do stanu \state{CZEKAJ}. Może się zdarzyć, jeśli jedna z wiadomości \msg{OFFER} lub \msg{ZLECENIE} jeszcze nie doszła do procesu.
 		\item  Pozostałe jak w stanie \state{START}.
 	\end{enumerate}
@@ -177,8 +176,6 @@ Wiadomości \msg{REQ\_ZLECENIE}, \msg{REQ\_BIURO}, \msg{REQ\_SZKIELET} zawieraj�
 \section{Inne pomysły i optymalizacje}
 \begin{enumerate}
 	\item Po wyjściu ze stanu \state{PRACA\_SZKIELET} tylko proces-tułów może czekać na wiadomości \msg{KONIEC\_SZKIELET} - wtedy również nie musi ich wysyłać.
-	\item Po otrzymaniu zlecenia z \var{QUEUE\_OFFER} można usunąć wiadomości o id mniejszym od otrzymanego.
-	\item Kolejkę \var{QUEUE\_OFFER} można zastąpić wysyłaniem wiadomości \msg{OFFER\_ACC}.
 	\item Przy dostępie do zleceń można dodać tablicę \var{LAST\_RECEIVED} z czasem otrzymania ostatniej wiadomości. Proces czeka wtedy, aż $n_x - 1$ wartości będzie większych lub równych niż czas wysłania \msg{REQ\_ZLECENIE}. Gdyby wszystkie procesy zaczęły się ubiegać, jeden z nich otrzyma \msg{REQ\_ZLECENIE} o niższych priorytetach i nie musi czekać na \msg{ACK\_ZLECENIE}. Proces wiedząc, że wysłał \msg{REQ\_ZLECENIE} o niższym priorytecie nie musi wtedy wysyłać \msg{ACK\_ZLECENIE} - tutaj można też dodać tablicę \var{LAST\_SEND}.
 \end{enumerate}
 
