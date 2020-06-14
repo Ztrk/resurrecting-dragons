@@ -1,0 +1,252 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+\usepackage[svgnames]{xcolor}
+\usepackage[a4paper,bindingoffset=0.2in,%
+left=1in,right=1in,top=1in,bottom=1.5in,%
+footskip=.25in]{geometry}
+\pagenumbering{gobble}
+\usepackage[colorlinks=true, linkcolor=Black, urlcolor=Blue]{hyperref}
+
+\newcommand{\state}[1]{\texttt{\textbf{#1}}}
+\newcommand{\msg}[1]{\texttt{\emph{#1}}}
+\newcommand{\var}[1]{\texttt{#1}}
+
+\begin{document}
+\title{Algorytm - Wskrzeszanie smoków}
+\author{Sebastian Michoń 136770, Marcin Zatorski 136834}
+\date{}
+\maketitle
+
+\section{Wstęp}
+\subsection{Założenia}
+	\begin{enumerate}
+		\item Biura o liczności $b$ i szkielety o liczności $s$ są zasobami nierozróżnialnymi.
+		\item Procesy wiedzą jaką rolę pełni każdy inny proces.
+		\item Proces o specjalizacji x będzie nazywany "proces-x" (np. proces o specjalizacji głowa to proces-głowa)
+		\item Zlecenia są rozróżnialne i mają przypisane id (numerowane od 1), zgodnie z kolejnością generacji.
+		\item Liczby procesów o poszczególnych specjalizacjach będą oznaczane przez: procesy-głowy: $n_g$, procesy-tułowie: $n_t$, procesy-ogony: $n_o$.
+	\end{enumerate}
+
+\section{Zmienne}
+\begin{description}
+	\item[$z_p$] Liczba otrzymanych wiadomości \msg{ZLECENIE}
+	\item[$z_c$] Liczba otrzymanych wiadomości \msg{REQ\_ZLECENIE} o priorytecie większym
+	\item[$cnt$] Liczba otrzymanych wiadomości \msg{REQ\_ZLECENIE} o priorytecie mniejszym
+	
+	\item[\var{QUEUE\_ZLECENIE}, \var{QUEUE\_BIURO}, \var{QUEUE\_SZKIELET}] Kolejki procesów oczekujących na wiadomość \msg{ACK}
+	\item[\var{QUEUE\_OFFER}] Kolejka procesów od których otrzymaliśmy wiadomość \msg{OFFER}.
+\end{description}
+
+\section{Wiadomości}
+\begin{description}
+	\item[\msg{ZLECENIE}] Informacja o nowym zleceniu
+	\item[\msg{REQ\_ZLECENIE}] Informacja o chęci dostępu do zlecenia
+	\item[\msg{ACK\_ZLECENIE}] Zaakceptowanie dostępu do zlecenia
+	\item[\msg{OFFER}] Oferta przyłączenia do grupy, zawiera id zlecenia
+	\item[\msg{REQ\_BIURO}] Prośba o dostęp do biura
+	\item[\msg{ACK\_BIURO}] Zaakceptowanie dostępu do biura
+	\item[\msg{KONIEC\_BIURO}] Informacja o końcu pracy w biurze
+	\item[\msg{REQ\_SZKIELET}] Prośba o dostęp do szkieletu
+	\item[\msg{ACK\_SZKIELET}] Zaakceptowanie dostępu do szkieletu
+	\item[\msg{START\_SZKIELET}] Rozpoczęcie pracy ze szkieletem
+	\item[\msg{KONIEC\_SZKIELET}] Koniec pracy ze szkieletem
+\end{description}
+Wiadomości \msg{REQ\_ZLECENIE}, \msg{REQ\_BIURO}, \msg{REQ\_SZKIELET} zawierają priorytet procesu - parę: zegar Lamporta, identyfikator procesu. Wiadomości \msg{ACK\_ZLECENIE}, \msg{ACK\_BIURO}, \msg{ACK\_SZKIELET} zawierają informację o wiadomości \msg{REQ}, na którą są odpowiedzią.
+
+\section{Stany}
+\begin{description}
+	\item[\state{START}] Stan początkowy procesu, zanim zacznie ubieganie się o zlecenie.
+	\item[\state{CZEKAJ\_ZLECENIE}] Stan oczekiwania na sekcję krytyczną zleceń.
+	\item[\state{MAM\_ZLECENIE}] Stan po otrzymaniu zlecenia, przed przydzieleniem do grupy.
+	\item[\state{CZEKAJ}] Stan po dobraniu do grupy, czekanie na skończenie pracy w biurze i rozpoczęcie pracy ze szkieletem
+	\item[\state{CZEKAJ\_BIURO}] Oczekiwanie na otrzymanie dostępu do biura
+	\item[\state{PRACA\_BIURO}] Praca w biurze
+	\item[\state{CZEKAJ\_SZKIELET}] Oczekiwanie na otrzymanie dostępu do szkieletu
+	\item[\state{PRACA\_SZKIELET}] Praca ze szkieletem i wskrzeszanie smoka
+\end{description}
+
+\section{Wskrzeszanie}
+
+\subsection{Dostęp do zleceń i dobór do grupy}
+\begin{enumerate}
+	\item Generator co jakiś czas wysyła wiadomość \msg{ZLECENIE} do wszystkich procesów poza samym sobą.
+	
+	\item Pozostałe procesy zaczynają w stanie \state{START}.
+	
+	Reakcje na wiadomości w stanie \state{START}:
+	\begin{enumerate}
+		\item \msg{REQ\_SZKIELET} Odpowiedz komunikatem \msg{ACK\_SZKIELET}
+		\item \msg{REQ\_BIURO} Odpowiedz komunikatem \msg{ACK\_BIURO}
+		\item \msg{REQ\_ZLECENIE} Odpowiedz komunikatem \msg{ACK\_ZLECENIE}. Zwiększ wartość $z_c$ o 1.
+		\item \msg{OFFER} Dodaj proces do kolejki \var{QUEUE\_OFFER}.
+		\item \msg{ZLECENIE} Zwiększ wartość $z_p$ o 1
+		\item \msg{ACK\_BIURO}, \msg{ACK\_SZKIELET}, \msg{ACK\_ZLECENIE} Zignoruj
+	\end{enumerate}
+		
+	\item Proces w stanie \state{START} wysyła wiadomość \msg{REQ\_ZLECENIE} do wszystkich procesów o tej samej specjalizacji i przechodzi do stanu \state{CZEKAJ\_ZLECENIE}.
+	
+	Reakcje na wiadomości w stanie \state{CZEKAJ\_ZLECENIE}:
+	\begin{enumerate}
+		\item \msg{REQ\_ZLECENIE} Wyślij \msg{ACK\_ZLECENIE}. Jeśli odebrana prośba ma priorytet mniejszy to zwiększ $cnt$ o 1. W przeciwnym wypadku zwiększ $z_c$ o 1.
+		\item \msg{ACK\_ZLECENIE} Jeśli jest to odpowiedź na ostatnią wysłaną wiadomość \msg{REQ\_ZLECENIE} zwiększ licznik ACK o 1, w p.p. zignoruj.
+		\item Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+		
+	\item Po otrzymaniu $n_x - 1$ odpowiedzi \msg{ACK\_ZLECENIE} proces przechodzi do stanu \state{MAM\_ZLECENIE}. Id zlecenia jest równe $z_c + 1$ (to zlecenie może jeszcze nie być wygenerowane). Następnie proces aktualizuje zmienne: $z_c$ += $cnt + 1$, $cnt = 0$.
+	\begin{description}
+		\item[$n_x$] liczba procesów o tej samej specjalizacji
+		\item[$z_c$] liczba otrzymanych wiadomości \msg{REQ\_ZLECENIE} o priorytecie większym.
+	\end{description}
+			
+	\item Reakcje na wiadomości w stanie \state{MAM\_ZLECENIE}:
+	\begin{enumerate}
+		\item \msg{REQ\_ZLECENIE} Dodaj proces do \var{QUEUE\_ZLECENIE}.
+		\item \msg{ACK\_ZLECENIE} Zignoruj
+		\item \msg{OFFER} Dodaj proces do kolejki \var{QUEUE\_OFFER}.
+		\item \msg{KONIEC\_BIURO}, \msg{START\_SZKIELET}, \msg{KONIEC\_SZKIELET} Dostarcz wiadomości, w kolejności odebrania, po przejściu do stanu \state{CZEKAJ}. Może się zdarzyć, jeśli jedna z wiadomości \msg{OFFER} lub \msg{ZLECENIE} jeszcze nie doszła do procesu.
+		\item  Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+	
+	\item Proces po przejściu do stanu \state{MAM\_ZLECENIE} wysyła wiadomość \msg{OFFER} z id zlecenia do wszystkich procesów o innej specjalizacji.
+	
+	\item Po otrzymaniu dwóch wiadomości \msg{OFFER} z id równym id otrzymanego zlecenia oraz jeśli $zp >= id$ zlecenia proces przechodzi do stanu \state{CZEKAJ}.
+\end{enumerate}
+
+\subsection{Dostęp do biur}
+\begin{enumerate}
+	\item Zamiast przejścia do stanu \state{CZEKAJ} proces-ogon wysyła do wszystkich innych procesów-ogonów komunikat \msg{REQ\_BIURO} i przechodzi do stanu \state{CZEKAJ\_BIURO}.
+	
+	Reakcje na wiadomości w stanie \state{CZEKAJ\_BIURO}:
+	\begin{enumerate}
+		\item \msg{REQ\_BIURO} Jeśli wysłana prośba ma priorytet mniejszy, wyślij \msg{ACK\_BIURO}, w przeciwnym przypadku dodaj proces do \var{QUEUE\_BIURO}
+		\item \msg{ACK\_BIURO} Jeśli jest to odpowiedź na ostatnią wysłaną wiadomość \msg{REQ\_BIURO} zwiększ licznik ACK o 1, w p.p. zignoruj
+		\item  Pozostałe jak w stanie \state{START}
+	\end{enumerate}
+	
+	\item Po otrzymaniu co najmniej $n_o - b$ odpowiedzi \msg{ACK\_BIURO} proces przechodzi do stanu \state{PRACA\_BIURO}.
+	
+	Reakcje na wiadomości w stanie \state{PRACA\_BIURO}:
+	\begin{enumerate}
+		\item \msg{REQ\_BIURO} Dodaj proces do \var{QUEUE\_BIURO}.
+		\item \msg{ACK\_BIURO} Zignoruj
+		\item  Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+	
+	\item Po pewnym czasie proces kończy pracę i wysyła \msg{ACK\_BIURO} do wszystkich procesów w \var{QUEUE\_BIURO}. Następnie wysyła \msg{KONIEC\_BIURO} do procesów w swoim zespole i przechodzi do stanu \state{CZEKAJ}.
+	
+	\item Reakcje na wiadomości w stanie \state{CZEKAJ}:
+	\begin{enumerate}
+		\item \msg{KONIEC\_BIURO} Jeśli odbiorcą jest proces-tułów zacznij staranie się o dostęp do szkieletu. W przeciwnym przypadku zignoruj.
+		\item \msg{START\_SZKIELET} Przejdź do stanu \msg{PRACA\_SZKIELET}.
+		\item Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+\end{enumerate}
+
+\subsection{Dostęp do szkieletów}
+\begin{enumerate}
+	\item Proces-tułów po otrzymaniu komunikatu \msg{KONIEC\_BIURO} wysyła do wszystkich innych procesów-tułowiów komunikat \msg{REQ\_SZKIELET} i przechodzi do stanu \state{CZEKAJ\_SZKIELET}.
+	
+	Reakcje na wiadomości w stanie \state{CZEKAJ\_SZKIELET}:
+	\begin{enumerate}
+		\item \msg{REQ\_SZKIELET} Jeśli wysłana prośba ma priorytet mniejszy, wyślij \msg{ACK\_SZKIELET}, w przeciwnym przypadku dodaj proces do \var{QUEUE\_SZKIELET}
+		\item \msg{ACK\_SZKIELET} Jeśli jest to odpowiedź na ostatnią wysłaną wiadomość \msg{REQ\_SZKIELET} zwiększ licznik ACK o 1, w p.p. zignoruj
+		\item  Pozostałe jak w stanie \state{START}
+	\end{enumerate}
+	
+	\item Jeśli otrzyma co najmniej $n_t - s$ odpowiedzi \msg{ACK\_SZKIELET} wysyła do procesów w swoim zespole wiadomość \msg{START\_SZKIELET} i przechodzi do stanu \state{PRACA\_SZKIELET}.
+	
+	Reakcje na wiadomości w stanie \state{PRACA\_SZKIELET}:
+	\begin{enumerate}
+		\item \msg{REQ\_SZKIELET} Dodaj proces do \var{QUEUE\_SZKIELET}.
+		\item \msg{ACK\_SZKIELET} Zignoruj
+		\item \msg{KONIEC\_SZKIELET} Zwiększ licznik zakończonych części o 1
+		\item  Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+	
+	\item Po pewnym czasie proces kończy pracę i wysyła wiadomość \msg{KONIEC\_SZKIELET} do innych procesów w swojej grupie.
+	
+	\item Jeżeli proces otrzymał dwie wiadomości \msg{KONIEC\_SZKIELET} i sam ją wysłał to przechodzi do stanu \state{START}.
+	
+	\item Proces-tułów przed przejściem do stanu \state{START} wysyła wiadomości \msg{ACK\_SZKIELET} do procesów w kolejce \msg{QUEUE\_SZKIELET}.
+\end{enumerate}
+
+\section{Inne pomysły i optymalizacje}
+\begin{enumerate}
+	\item Po wyjściu ze stanu \state{PRACA\_SZKIELET} tylko proces-tułów może czekać na wiadomości \msg{KONIEC\_SZKIELET} - wtedy również nie musi ich wysyłać.
+	\item Po otrzymaniu zlecenia z \var{QUEUE\_OFFER} można usunąć wiadomości o id mniejszym od otrzymanego.
+	\item Kolejkę \var{QUEUE\_OFFER} można zastąpić wysyłaniem wiadomości \msg{OFFER\_ACC}.
+	\item Przy dostępie do zleceń można dodać tablicę \var{LAST\_RECEIVED} z czasem otrzymania ostatniej wiadomości. Proces czeka wtedy, aż $n_x - 1$ wartości będzie większych lub równych niż czas wysłania \msg{REQ\_ZLECENIE}. Gdyby wszystkie procesy zaczęły się ubiegać, jeden z nich otrzyma \msg{REQ\_ZLECENIE} o niższych priorytetach i nie musi czekać na \msg{ACK\_ZLECENIE}. Proces wiedząc, że wysłał \msg{REQ\_ZLECENIE} o niższym priorytecie nie musi wtedy wysyłać \msg{ACK\_ZLECENIE} - tutaj można też dodać tablicę \var{LAST\_SEND}.
+\end{enumerate}
+
+\subsection{Złożoność Komunikacyjna}
+Przez złożoność komunikacyjną w tym zadaniu rozumiana jest liczba komunikatów potrzebna do wykonania uprzednio wydanego zlecenia. Kluczowym spostrzeżeniem w obliczaniu złożoności komunikacyjnej jest zauważenie, że każdy komunikat można przypisać do jakiegoś zlecenia.:
+\begin{enumerate}
+	\item[\msg{ZLECENIE}] - Przypisana do właśnie wysyłanego zlecenia
+	\item[\msg{ACK\_...}] - Przypisana do zlecenia, które jest przypisane do requesta, na które to ACK odpowiada
+	\item[\msg{REQ\_ZLECENIE}] - Przypisana do zlecenia wykonywanego przez specjalistę po odebraniu odpowiedniej ilości ACKów.
+	\item[\msg{OFFER}] Przypisana do zlecenia, które zostało przyjęte.
+\end{enumerate}
+Pozostałe komunikaty są przypisywane do obecnie wykonywanego zlecenia przez specjalistów (związane ze szkieletem i biurem - start i koniec pracy, requesty). Dzięki takiemu przypisaniu na gruncie teoretycznym (na poziomie algorytmu te przypisanie jest niewidoczne) możliwa jest analiza tego, ile komunikatów powstaje w związku z pojedynczym zleceniem. Warto też zauważyć następującą równość: \(n=n_o+n_t+n_g+1\) - liczba wszystkich procesów to liczba procesów o 3 specjalizacjach plus generator zleceń.
+\begin{enumerate}
+	\item Dostęp do zleceń i dobór do grupy:
+	\begin{description}
+		\item[\(n-1\)] - wysyłanie zleceń przez generator - ZLECENIE
+		\item[\(2(n_g-1+n_t-1+n_o-1)=2n-8\)] - przyjmowanie  i odbieranie REQ/ACK\_ZLECENIE
+		\item[\((n_o+n_t)+(n_g+n_o)+(n_g+n_t)=2n-2\)] - wysyłanie OFFERA do procesów o różnej specjalizacji.
+	\end{description} 
+	Wszystkie procesy w sumie mają złożoność komunikacyjną \(5n-11\)
+	
+	
+	\item Dostęp do biur:
+	\begin{description}
+		\item[\(2(n_o-1)\)] przyjmuje i odbiera REQ/ACK\_BIURO od innych procesów-ogonów
+		\item[\(2\)] wysłanie komunikatu KONIEC\_BIURO do pozostałych specjalistów
+	\end{description} 
+	W sumie \(2n_o\)
+	\item Dostęp do szkieletów:
+	\begin{description}
+		\item[\(2(n_t-1)\)] przyjmuje i odbiera REQ/ACK\_SZKIELET od innych procesów-szkieletów
+		\item[\(2\)] wysłanie komunikatu START\_SZKIELET do pozostałych specjalistów przez proces-tułów
+		\item[\(3*2\)] wysłanie komunikatu KONIEC\_SZKIELET do pozostałych specjalistów przez każdego specjalistę
+	\end{description}
+	W sumie \(2n_t+6\)
+	\item W sumie komunikacyjna - liczba komunikatów związanych z pojedynczym zleceniem - wynosi \(5n+2n_o+2n_t-5\).
+\end{enumerate}
+
+\subsection{Złożoność Czasowa}
+Złożoność czasowa dla pojedynczego zlecenia jest liczona jako liczba rund, w których wysyłane są komunikaty przy pomijalnie małym czasie lokalnego przetwarazania.
+\begin{enumerate}
+	\item Dostęp do zleceń i dobór do grupy:
+	\begin{description}
+		\item[1] - wysyłanie ZLECENIE przez generator i REQ przez specjalistów
+		\item[1] - odbieranie i wysyłanie ACK przez specjalistów
+		\item[1] - wysłanie OFFER przez specjalistów z nr zlecenia
+	\end{description}
+	W sumie 3.
+	
+	\item Dostęp do biur:
+	\begin{description}
+		\item[1] wysyłanie REQ\_BIURO
+		\item[1] wysyłanie KONIEC\_BIURO do kompanów po zakończeniu przcy w biurze przez ogon
+		\item[1] wysyłanie ACK\_BIURO do oczekujących procesów
+	\end{description}
+	W sumie 3.
+	
+	\item Dostęp do szkieletów:
+	\begin{description}
+		\item[1] wysyłanie REQ\_SZKIELET przez proces-tułów
+		\item[1] wysyłanie START\_SZKIELET przez proces-tułów do kompanów po zdobyciu odpowiedniej ilości ACKów
+		\item[1] wysyłanie KONIEC\_SZKIELET przez proces do kompanów po zakończeniu pracy ze szkieletem.
+		\item[1] wysyłanie ACK\_SZKIELET przez proces-tułów do pozostałych procesów-tułowiów
+	\end{description}
+	W sumie 4.
+	\item W sumie złożoność czasowa wynosi 10.
+\end{enumerate}
+
+\subsection{Pojemność kanału}
+Konieczna pojemność kanału komunikacyjnego może być potencjalnie nieskończona - po pierwsze, ponieważ proces może nie zareagować na nieskończoną liczbę zleceń od generatora zleceń. Po drugie, jeśli jakiś proces np. wskrzesza smoka przez dłuższy czas i nie odpowiada na komunikaty, pozostałe procesy mogą wysyłać mu REQ\_SZKIELET, nie dostawać odpowiedzi i i tak wchodzić do sekcji krytycznej (bo s>1), wychodzić z niej i ponawiać proces w nieskończoność. 
+
+\end{document}
