@@ -6,7 +6,11 @@
 
 class TaskGenerator : public Process {
 public:
+    TaskGenerator(int time_per_task);
+
     void execute();
+
+    const int TIME_PER_TASK;
 
     friend std::ostream& operator<<(std::ostream &os, const TaskGenerator &process);
 };

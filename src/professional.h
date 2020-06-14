@@ -14,7 +14,8 @@ public:
     };
     enum class State;
 
-    Professional(Specialization specialization);
+    Professional(std::vector<Specialization> specializations, int office_num, int skeleton_num, int work_time);
+
     void execute();
     void handle_packet(Packet &packet, PacketTag tag, int source);
     void on_change_state();
@@ -37,18 +38,20 @@ public:
     };
 private:
     State state = State::START;
-    Specialization specialization;
 
-    const int OFFICE_NUM = 3;
-    const int SKELETON_NUM = 3;
+    Specialization specialization;
+    std::vector<Specialization> specializations;
+    int specialization_size;
+
+    const int OFFICE_NUM;
+    const int SKELETON_NUM;
+    const int WORK_TIME;
 
     int tasks_produced = 0;
     int tasks_consumed = 0;
     int tasks_lower_priority = 0;
 
     int task_id = 0;
-
-    int specialization_size;
 
     int ack_count = 0;
     int request_priority = 0;
