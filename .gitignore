@@ -33,3 +33,8 @@ bin/
 *.exe
 *.out
 *.app
+
+#Tex
+*.aux
+*.log
+*.gz
