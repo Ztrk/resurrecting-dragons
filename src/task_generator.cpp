@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include "task_generator.h"
 #include "packet.h"
+#include "logging.h"
 using namespace std;
 
 TaskGenerator::TaskGenerator(int time_per_task) 
@@ -12,10 +13,10 @@ TaskGenerator::TaskGenerator(int time_per_task)
 void TaskGenerator::execute() {
     Packet packet;
     int task_id = 1;
-    cout << *this << "Generating tasks\n";
+    INFO << *this << "Starting task generator\n";
     while (true) {
         update_clock();
-        cout << *this << "Generated task: " << task_id << '\n';
+        INFO << *this << "Generated task: " << task_id << '\n';
         packet.data = task_id;
         for (int i = 0; i < size; ++i) {
             if (i != rank) {

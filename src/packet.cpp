@@ -16,6 +16,6 @@ void Packet::initialize_datatype() {
 }
 
 std::ostream& operator<<(std::ostream &os, const Packet &packet) {
-    std::cout << "from: " << packet.source << " data: " << packet.data;
+    os << "from: " << packet.source << " data: " << packet.data;
     return os;
 }

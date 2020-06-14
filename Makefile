@@ -22,13 +22,13 @@ $(bin)/main: $(objects)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $(bin)/$@ $<
 
 # Header files 
-main.o: process.h task_generator.h professional.h packet.h
+main.o: process.h task_generator.h professional.h packet.h logging.h
 
 process.o: process.h packet.h
 
-task_generator.o: task_generator.h process.h packet.h
+task_generator.o: task_generator.h process.h packet.h logging.h
 
-professional.o: professional.h process.h packet.h
+professional.o: professional.h process.h packet.h logging.h
 
 packet.o: packet.h
 

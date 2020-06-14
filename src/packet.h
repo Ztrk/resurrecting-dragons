@@ -3,9 +3,9 @@
 #include <ostream>
 
 struct Packet {
-    int time;
-    int source;
-    int data;
+    int time = -1;
+    int source = -1;
+    int data = -1;
 
     static void initialize_datatype();
 };
