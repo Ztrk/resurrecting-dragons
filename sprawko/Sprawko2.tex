@@ -1,0 +1,258 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+
+\usepackage[svgnames]{xcolor}
+\usepackage[a4paper,bindingoffset=0.2in,%
+left=1in,right=1in,top=1in,bottom=1.5in,%
+footskip=.25in]{geometry}
+\pagenumbering{gobble}
+\usepackage[colorlinks=true, linkcolor=Black, urlcolor=Blue]{hyperref}
+
+\newcommand{\state}[1]{\texttt{\textbf{#1}}}
+\newcommand{\msg}[1]{\texttt{\emph{#1}}}
+\newcommand{\var}[1]{\texttt{#1}}
+
+\begin{document}
+\title{Algorytm - Wskrzeszanie smoków}
+\author{Sebastian Michoń 136770, Marcin Zatorski 136834}
+\date{}
+\maketitle
+
+\section{Wstęp}
+Celem zadania było opracowanie programu rozwiązującego problem rozproszonej sekcji krytycznej. W zadaniu są dwa rodzaje procesów. Generator zleceń wysyła co jakiś czas zlecenia do innych procesów. Zlecenia są rozróżnialne i mają przypisane id (zaczynając od 1), zgodnie z kolejnością generacji. Pozostałe procesy to profesjonaliści o trzech możliwych specjalizacjach: głowa, tułów lub ogon. Do wykonania zlecenia potrzeba po jednym specjaliście z każdej specjalizacji. Przed wykonaniem zlecenia jeden ze specjalistów (ogon) musi wykonać pracę w biurze. Biur jest $b$, i są one nierozróżnialne. Po wykonaniu pracy w biurze można wykonać zlecenie - wskrzesić smoka. Potrzeba do tego jednego ze szkieletów. Szkieletów jest $s$ i są one nierozróżnialne. Szkielety nie znikają po wskrzeszeniu smoka. Za dostęp do szkieletów odpowiada proces-tułów.
+
+Proces o specjalizacji x będzie nazywany ``proces-x'' (np. proces o specjalizacji głowa to proces-głowa). Liczby procesów o poszczególnych specjalizacjach będą oznaczane przez: procesy-głowy: $n_g$, procesy-tułowie: $n_t$, procesy-ogony: $n_o$.
+
+\subsection{Założenia}
+	\begin{enumerate}
+		\item Biura o liczności $b$ i szkielety o liczności $s$ są zasobami nierozróżnialnymi.
+		\item Procesy wiedzą jaką rolę pełni każdy inny proces.
+		\item Proces o specjalizacji x będzie nazywany "proces-x" (np. proces o specjalizacji głowa to proces-głowa)
+		\item Zlecenia są rozróżnialne i mają przypisane id (numerowane od 1), zgodnie z kolejnością generacji.
+		\item Liczby procesów o poszczególnych specjalizacjach będą oznaczane przez: procesy-głowy: $n_g$, procesy-tułowie: $n_t$, procesy-ogony: $n_o$.
+	\end{enumerate}
+
+\section{Zmienne}
+\begin{description}
+	\item[$z_p$] Liczba otrzymanych wiadomości \msg{TASK}
+	\item[$z_c$] Liczba otrzymanych wiadomości \msg{REQ\_TASK} o priorytecie większym
+	\item[$cnt$] Liczba otrzymanych wiadomości \msg{REQ\_TASK} o priorytecie mniejszym
+	
+	\item[\var{OFFERS}] Zbiór procesów od których otrzymano wiadomość \msg{OFFER}, razem z ich id zlecenia
+	
+	\item[\var{QUEUE\_OFFICE}] Kolejka komunikatów \msg{REQ\_OFFICE}, na które jeszcze nie wysłano odpowiedzi
+	\item[\var{QUEUE\_SKELETON}] Kolejka komunikatów \msg{REQ\_SKELETON}, na które jeszcze nie wysłano odpowiedzi
+\end{description}
+
+\section{Wiadomości}
+\begin{description}
+	\item[\msg{TASK}] Informacja o nowym zleceniu
+	\item[\msg{REQ\_TASK}] Informacja o chęci dostępu do zlecenia
+	\item[\msg{ACK\_TASK}] Zaakceptowanie dostępu do zlecenia
+	\item[\msg{OFFER}] Oferta przyłączenia do grupy, zawiera id zlecenia
+	\item[\msg{REQ\_OFFICE}] Prośba o dostęp do biura
+	\item[\msg{ACK\_OFFICE}] Zaakceptowanie dostępu do biura
+	\item[\msg{END\_OFFICE}] Informacja o końcu pracy w biurze
+	\item[\msg{REQ\_SKELETON}] Prośba o dostęp do szkieletu
+	\item[\msg{ACK\_SKELETON}] Zaakceptowanie dostępu do szkieletu
+	\item[\msg{START\_SKELETON}] Rozpoczęcie pracy ze szkieletem
+	\item[\msg{END\_SKELETON}] Koniec pracy ze szkieletem
+\end{description}
+Wiadomości \msg{REQ\_TASK}, \msg{REQ\_OFFICE}, \msg{REQ\_SKELETON} zawierają priorytet procesu - parę: zegar Lamporta, identyfikator procesu. Wiadomości \msg{ACK\_TASK}, \msg{ACK\_OFFICE}, \msg{ACK\_SKELETON} zawierają informację o wiadomości \msg{REQ}, na którą są odpowiedzią.
+
+\section{Stany}
+\begin{description}
+	\item[\state{START}] Stan początkowy procesu, zanim zacznie ubieganie się o zlecenie.
+	\item[\state{WAIT\_TASK}] Stan oczekiwania na sekcję krytyczną zleceń.
+	\item[\state{HAS\_TASK}] Stan po otrzymaniu zlecenia, przed przydzieleniem do grupy.
+	\item[\state{HAS\_TEAM}] Stan po znalezieniu pozostałych specjalistów koniecznych do wskrzeszenia smoka.
+	
+	\item[\state{IDLE}] Stan po dobraniu do grupy, czekanie na skończenie pracy w biurze i rozpoczęcie pracy ze szkieletem
+	\item[\state{WAIT\_OFFICE}] Oczekiwanie na otrzymanie dostępu do biura
+	\item[\state{WORK\_OFFICE}] Praca w biurze
+	\item[\state{FINISH\_OFFICE}] Zakończenie pracy w biurze
+	
+	\item[\state{WAIT\_SKELETON}] Oczekiwanie na otrzymanie dostępu do szkieletu
+	\item[\state{WORK\_SKELETON}] Praca ze szkieletem i wskrzeszanie smoka
+	\item[\state{FINISH\_SKELETON}] Zakończenie pracy ze szkieletem
+\end{description}
+
+\section{Wskrzeszanie}
+
+\subsection{Dostęp do zleceń i dobór do grupy}
+\begin{enumerate}
+	\item Generator co jakiś czas wysyła wiadomość \msg{TASK} do wszystkich procesów poza samym sobą.
+	
+	\item Pozostałe procesy zaczynają w stanie \state{START}, natychmiast przechodzą z niego do \state{WAIT\_TASK}.
+	
+	Reakcje na wiadomości w stanie \state{START}:
+	\begin{enumerate}
+		\item \msg{REQ\_SKELETON} Odpowiedz komunikatem \msg{ACK\_SKELETON}
+		\item \msg{REQ\_OFFICE} Odpowiedz komunikatem \msg{ACK\_OFFICE}
+		\item \msg{REQ\_TASK} Odpowiedz komunikatem \msg{ACK\_TASK}. Zwiększ wartość $z_c$ o 1.
+		\item \msg{OFFER} Dodaj id procesu do zbioru ofert \var{OFFERS} razem z id zlecenia, którego dotyczy oferta.
+		\item \msg{TASK} Zwiększ wartość $z_p$ o 1
+		\item \msg{ACK\_OFFICE}, \msg{ACK\_SKELETON}, \msg{ACK\_TASK} Zignoruj
+	\end{enumerate}
+		
+	\item Proces w stanie \state{WAIT\_TASK} wysyła wiadomość \msg{REQ\_TASK} do wszystkich procesów o tej samej specjalizacji.
+	
+	Reakcje na wiadomości w stanie \state{WAIT\_TASK}:
+	\begin{enumerate}
+		\item \msg{REQ\_TASK} Wyślij \msg{ACK\_TASK}. Jeśli odebrana prośba ma priorytet mniejszy to zwiększ $cnt$ o 1. W przeciwnym wypadku zwiększ $z_c$ o 1.
+		\item \msg{ACK\_TASK} Jeśli jest to odpowiedź na ostatnią wysłaną wiadomość \msg{REQ\_TASK} zwiększ licznik ACK o 1, w p.p. zignoruj.
+		\item Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+		
+	\item Po otrzymaniu $n_x - 1$ odpowiedzi \msg{ACK\_TASK} proces przechodzi do stanu \state{HAS\_TASK}. Id zlecenia jest równe $z_c + 1$ (to zlecenie może jeszcze nie być wygenerowane). Następnie proces aktualizuje zmienne: $z_c$ += $cnt + 1$, $cnt = 0$.
+	\begin{description}
+		\item[$n_x$] liczba procesów o tej samej specjalizacji
+		\item[$z_c$] liczba otrzymanych wiadomości \msg{REQ\_TASK} o priorytecie większym.
+	\end{description}
+			
+	\item Reakcje na wiadomości w stanie \state{HAS\_TASK} i \state{HAS\_TEAM}:
+	\begin{enumerate}
+		\item \msg{REQ\_TASK} Wysyłane jest \msg{ACK\_TASK}, \(z_c\) jest zwiększane o 1.
+		\item \msg{ACK\_TASK} Zignoruj
+		\item \msg{END\_OFFICE}, \msg{START\_SKELETON}, \msg{END\_SKELETON} Dostarcz wiadomości, w kolejności odebrania, po przejściu do stanu \state{IDLE}. Może się zdarzyć, jeśli jedna z wiadomości \msg{OFFER} lub \msg{TASK} jeszcze nie doszła do procesu.
+		\item  Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+	
+	\item Proces po przejściu do stanu \state{HAS\_TASK} wysyła wiadomość \msg{OFFER} z id zlecenia do wszystkich procesów o innej specjalizacji.
+	
+	\item Po otrzymaniu dwóch wiadomości \msg{OFFER} z id równym id otrzymanego zlecenia proces przechodzi do stanu \state{HAS\_TEAM}.
+	
+	\item Jeśli w stanie \state{HAS\_TEAM} $z_p >= id$ proces przechodzi do stanu \state{IDLE}.
+\end{enumerate}
+
+\subsection{Dostęp do biur}
+\begin{enumerate}
+	\item Zamiast przejścia do stanu \state{IDLE} proces-ogon wysyła do wszystkich innych procesów-ogonów komunikat \msg{REQ\_OFFICE} i przechodzi do stanu \state{WAIT\_OFFICE}.
+	
+	Reakcje na wiadomości w stanie \state{WAIT\_OFFICE}:
+	\begin{enumerate}
+		\item \msg{REQ\_OFFICE} Jeśli wysłana prośba ma priorytet mniejszy, wyślij \msg{ACK\_OFFICE}, w przeciwnym przypadku dodaj proces do \var{QUEUE\_OFFICE}
+		\item \msg{ACK\_OFFICE} Jeśli jest to odpowiedź na ostatnią wysłaną wiadomość \msg{REQ\_OFFICE} zwiększ licznik ACK o 1, w p.p. zignoruj
+		\item  Pozostałe jak w stanie \state{START}
+	\end{enumerate}
+	
+	\item Po otrzymaniu co najmniej $n_o - b$ odpowiedzi \msg{ACK\_OFFICE} proces przechodzi do stanu \state{WORK\_OFFICE}.
+	
+	Reakcje na wiadomości w stanie \state{WORK\_OFFICE}:
+	\begin{enumerate}
+		\item \msg{REQ\_OFFICE} Dodaj proces do \var{QUEUE\_OFFICE}.
+		\item \msg{ACK\_OFFICE} Zignoruj
+		\item  Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+	
+	\item Po pewnym czasie proces kończy pracę i przechodzi do stanu \state{FINISH\_OFFICE}. Następnie wysyła \msg{ACK\_OFFICE} do wszystkich procesów w \var{QUEUE\_OFFICE}. Wysyła również \msg{END\_OFFICE} do procesu-tułowia.
+	
+	\item Reakcje na wiadomości w stanie \state{IDLE} i \state{FINISH\_OFFICE}:
+	\begin{enumerate}
+		\item \msg{END\_OFFICE} Jeśli odbiorcą jest proces-tułów zacznij staranie się o dostęp do szkieletu. W przeciwnym przypadku zignoruj.
+		\item \msg{START\_SKELETON} Przejdź do stanu \msg{WORK\_SKELETON}.
+		\item Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+\end{enumerate}
+
+\subsection{Dostęp do szkieletów}
+\begin{enumerate}
+	\item Proces-tułów po otrzymaniu komunikatu \msg{END\_OFFICE} wysyła do wszystkich innych procesów-tułowiów komunikat \msg{REQ\_SKELETON} i przechodzi do stanu \state{WAIT\_SKELETON}.
+	
+	Reakcje na wiadomości w stanie \state{WAIT\_SKELETON}:
+	\begin{enumerate}
+		\item \msg{REQ\_SKELETON} Jeśli wysłana prośba ma priorytet mniejszy, wyślij \msg{ACK\_SKELETON}, w przeciwnym przypadku dodaj proces do \var{QUEUE\_SKELETON}
+		\item \msg{ACK\_SKELETON} Jeśli jest to odpowiedź na ostatnią wysłaną wiadomość \msg{REQ\_SKELETON} zwiększ licznik ACK o 1, w p.p. zignoruj
+		\item  Pozostałe jak w stanie \state{START}
+	\end{enumerate}
+	
+	\item Jeśli proces-tułów otrzyma co najmniej $n_t - s$ odpowiedzi \msg{ACK\_SKELETON} wysyła do procesów w swoim zespole wiadomość \msg{START\_SKELETON} i przechodzi do stanu \state{WORK\_SKELETON}.
+	
+	Reakcje na wiadomości w stanie \state{WORK\_SKELETON}:
+	\begin{enumerate}
+		\item \msg{REQ\_SKELETON} Dodaj proces do \var{QUEUE\_SKELETON}.
+		\item \msg{ACK\_SKELETON} Zignoruj
+		\item \msg{END\_SKELETON} Zwiększ licznik zakończonych części o 1
+		\item  Pozostałe jak w stanie \state{START}.
+	\end{enumerate}
+	
+	\item Po zakończeniu pracy proces-tułów przechodzi do stanu \state{FINISH\_SKELETON}. Pozostałe procesy w zespole wysyłają do niego wiadomość \msg{END\_SKELETON} i przechodzą do stanu \state{START}.
+	
+	\item Jeżeli proces-tułów otrzymał dwie wiadomości \msg{END\_SKELETON} to  przechodzi do stanu \state{START}.
+ 	Wysyła też wiadomości \msg{ACK\_SKELETON} do procesów w kolejce \msg{QUEUE\_SKELETON}.
+\end{enumerate}
+
+\section{Inne pomysły i optymalizacje}
+\subsection{Złożoność Komunikacyjna}
+Złożoność komunikacyjna została obliczona jako liczba komunikatów potrzebnych do wykonania jednego zlecenia. Każdy komunikat jest powiązany z jednym zleceniem, a zatem każdemu komunikatowi można przypisać dokładnie jedno zlecenie:
+\begin{enumerate}
+	\item[\msg{TASK}] - Przypisana do wygenerowanego zlecenia
+	\item[\msg{ACK\_...}] - Przypisana do tego zlecenia, które jest przypisane do requesta, na które to ACK odpowiada
+	\item[\msg{REQ\_TASK}] - Przypisana do zlecenia wykonywanego przez specjalistę po odebraniu odpowiedniej ilości komunikatów \msg{ACK\_TASK}.
+	\item[\msg{OFFER}] Przypisana do zlecenia, które zostało przyjęte.
+\end{enumerate}
+Pozostałe komunikaty są powiązane z zleceniem wykonywanym przez dany zespół. Liczba komunikatów wysłanych w ramach zlecenia to:
+\begin{enumerate}
+	\item Dostęp do zleceń i dobór do grupy:
+	\begin{description}
+		\item[\(n-1\)] - wysyłanie zleceń przez generator - \msg{TASK}
+		\item[\(2(n_g-1+n_t-1+n_o-1)=2n-8\)] - przyjmowanie  i odbieranie \msg{REQ/ACK\_TASK}
+		\item[\((n_o+n_t)+(n_g+n_o)+(n_g+n_t)=2n-2\)] - wysyłanie \msg{OFFER} do procesów o różnej specjalizacji.
+	\end{description} 
+	Wszystkie procesy w sumie mają złożoność komunikacyjną \(5n-11\)
+	
+	
+	\item Dostęp do biur:
+	\begin{description}
+		\item[\(2(n_o-1)\)] przyjmuje i odbiera \msg{REQ/ACK\_OFFICE} od innych procesów-ogonów
+		\item[\(1\)] wysłanie komunikatu \msg{END\_OFFICE} do procesu-tułowia przez proces-ogon.
+	\end{description} 
+	W sumie \(2n_o-1\)
+	\item Dostęp do szkieletów:
+	\begin{description}
+		\item[\(2(n_t-1)\)] przyjmuje i odbiera \msg{REQ/ACK\_SKELETON} od innych procesów-szkieletów
+		\item[\(2\)] wysłanie komunikatu \msg{START\_SKELETON} do pozostałych specjalistów przez proces-tułów
+		\item[\(2\)] wysłanie komunikatu \msg{END\_SKELETON} do procesu-tułowia przez proces-ogon i proces-głowa.
+	\end{description}
+	W sumie \(2n_t+2\)
+	\item W sumie komunikacyjna - liczba komunikatów związanych z pojedynczym zleceniem - wynosi \(5n+2n_o+2n_t-10\).
+\end{enumerate}
+
+\subsection{Złożoność Czasowa}
+Złożoność czasowa dla pojedynczego zlecenia jest liczona jako liczba rund, w których wysyłane są komunikaty przy pomijalnie małym czasie lokalnego przetwarazania i jednostkowym czasie transmisji komunikatu.
+\begin{enumerate}
+	\item Dostęp do zleceń i dobór do grupy:
+	\begin{description}
+		\item[1] - wysyłanie \msg{TASK} przez generator i \msg{REQ\_TASK} przez specjalistów
+		\item[2] - odbieranie i wysyłanie \msg{ACK\_TASK} przez specjalistów
+		\item[3] - wysłanie \msg{OFFER} przez specjalistów z nr zlecenia
+	\end{description}
+	W sumie 3.
+	
+	\item Dostęp do biur:
+	\begin{description}
+		\item[4] wysyłanie \msg{REQ\_OFFICE}
+		\item[5] wysyłanie \msg{END\_OFFICE} do procesu-tułowia po zakończeniu pracy w biurze przez ogon
+		\item[6] wysyłanie \msg{ACK\_OFFICE} do oczekujących procesów
+	\end{description}
+	W sumie 3.
+	
+	\item Dostęp do szkieletów:
+	\begin{description}
+		\item[7] wysyłanie \msg{REQ\_SKELETON} przez proces-tułów
+		\item[8] wysyłanie \msg{START\_SKELETON} przez proces-tułów do kompanów po zdobyciu odpowiedniej ilości ACKów
+		\item[9] wysyłanie \msg{END\_SKELETON} przez procesy do procesu-tułowia po zakończeniu pracy ze szkieletem.
+		\item[10] wysyłanie \msg{ACK\_SKELETON} przez proces-tułów do pozostałych procesów-tułowiów
+	\end{description}
+	W sumie 4.
+	\item W sumie złożoność czasowa dla pojedynczego zlecenia wynosi 10.
+	
+\end{enumerate}
+
+\subsection{Pojemność kanału}
+Konieczna pojemność kanału komunikacyjnego może być potencjalnie nieskończona - choćby dlatego, że proces może nie zareagować na nieskończoną liczbę zleceń od generatora zleceń.
+
+\end{document}
